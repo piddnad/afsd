@@ -462,3 +462,68 @@ class CosineSimOutputLayers(nn.Module):
         scores = self.scale * cos_dist
         proposal_deltas = self.bbox_pred(x)
         return scores, proposal_deltas
+
+
+class FastRCNNSoftLabelOutputs(FastRCNNOutputs):
+    """
+    Add a soft target loss branch for FastRCNNOutputs
+    """
+    def __init__(
+        self,
+        box2box_transform,
+        pred_class_logits,
+        pred_proposal_deltas,
+        proposals,
+        smooth_l1_beta,
+        pred_base_class_logits,
+        soft_label_base_class,
+        criterion,
+        soft_target_loss_weight,
+        box_reg_weight,
+        stl_head_only,
+    ):
+        """
+        Args:
+            box_cls_feat_con (Tensor): the projected features
+                to calculate supervised contrastive loss upon
+            criterion (SupConLoss <- nn.Module): SupConLoss is implemented in fsdet/modeling/contrastive_loss.py
+        """
+        self.box2box_transform = box2box_transform
+        self.pred_class_logits = pred_class_logits
+        self.pred_proposal_deltas = pred_proposal_deltas
+        self.num_preds_per_image = [len(p) for p in proposals]
+        self.smooth_l1_beta = smooth_l1_beta
+
+        self.pred_base_class_logits = pred_base_class_logits
+        self.soft_label_base_class = soft_label_base_class
+        self.criterion = criterion
+        self.soft_target_loss_weight = soft_target_loss_weight
+        self.box_reg_weight = box_reg_weight
+
+        self.stl_head_only = stl_head_only
+
+        box_type = type(proposals[0].proposal_boxes)
+        # cat(..., dim=0) concatenates over all images in the batch
+        self.proposals = box_type.cat([p.proposal_boxes for p in proposals])  # self.proposals = List[Boxes]
+        assert not self.proposals.tensor.requires_grad, "Proposals should not require gradients!"
+        self.image_shapes = [x.image_size for x in proposals]
+
+        # The following fields should exist only when training.
+        if proposals[0].has("gt_boxes"):
+            self.gt_boxes = box_type.cat([p.gt_boxes for p in proposals])
+            assert proposals[0].has("gt_classes")
+            self.gt_classes = cat([p.gt_classes for p in proposals], dim=0)
+
+    def soft_target_loss(self):
+        soft_target_loss = self.criterion(self.pred_base_class_logits, self.soft_label_base_class)
+        return soft_target_loss
+
+    def losses(self):
+        if self.stl_head_only:
+            return {'loss_soft_target': self.soft_target_loss()}
+        else:
+            return {
+                'loss_cls': self.softmax_cross_entropy_loss(),
+                'loss_box_reg': self.box_reg_weight * self.smooth_l1_loss(),
+                'loss_soft_target': self.soft_target_loss_weight * self.soft_target_loss(),
+            }
