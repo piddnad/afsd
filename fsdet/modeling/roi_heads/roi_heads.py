@@ -502,15 +502,13 @@ class SoftLabelROIHeads(StandardROIHeads):
         super().__init__(cfg, input_shape)
         # fmt: on
         self.fc_dim               = cfg.MODEL.ROI_BOX_HEAD.FC_DIM
-        self.mlp_head_dim         = cfg.MODEL.ROI_BOX_HEAD.SOFT_LABEL_BRANCH.MLP_FEATURE_DIM
         self.temperature          = cfg.MODEL.ROI_BOX_HEAD.SOFT_LABEL_BRANCH.TEMPERATURE
         self.soft_target_loss_weight = cfg.MODEL.ROI_BOX_HEAD.SOFT_LABEL_BRANCH.LOSS_WEIGHT
         self.box_reg_weight       = cfg.MODEL.ROI_BOX_HEAD.BOX_REG_WEIGHT
 
-        self.num_classes          = cfg.MODEL.ROI_HEADS.NUM_CLASSES
-
+        self.num_classes          = cfg.MODEL.ROI_BOX_HEAD.SOFT_LABEL_BRANCH.NUM_CLASSES
         self.stl_head_only        = cfg.MODEL.ROI_BOX_HEAD.SOFT_LABEL_BRANCH.HEAD_ONLY
-        self.base_weight_path     = cfg.MODEL.BASE_WEIGHTS
+        self.base_weight_path     = cfg.MODEL.ROI_BOX_HEAD.SOFT_LABEL_BRANCH.BASE_WEIGHTS
         # fmt: off
 
         self.base_classifier = nn.Linear(self.fc_dim, self.num_classes + 1)
@@ -521,7 +519,7 @@ class SoftLabelROIHeads(StandardROIHeads):
         pretrained_dict = {k.split('.')[-1]: v for k, v in pretrained_dict['model'].items() if k in load_layers}
         with torch.no_grad():
             self.pretrain_classifier.weight.copy_(pretrained_dict['weight'])
-            self.pretrain_classifier.weight.copy_(pretrained_dict['bias'])
+            self.pretrain_classifier.bias.copy_(pretrained_dict['bias'])
         self.criterion = nn.KLDivLoss(log_target=True)
 
     def _forward_box(self, features, proposals):
