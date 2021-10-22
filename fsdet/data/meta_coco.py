@@ -121,11 +121,64 @@ def load_coco_json(json_file, image_root, metadata, dataset_name):
     return dataset_dicts
 
 
+def load_coco_json_filter_novel(json_file, image_root, metadata, dataset_name):
+    json_file = PathManager.get_local_path(json_file)
+    with contextlib.redirect_stdout(io.StringIO()):
+        coco_api = COCO(json_file)
+    # sort indices for reproducible results
+    img_ids = sorted(list(coco_api.imgs.keys()))
+    imgs = coco_api.loadImgs(img_ids)
+    anns = [coco_api.imgToAnns[img_id] for img_id in img_ids]
+    imgs_anns = list(zip(imgs, anns))
+
+    id_map = metadata["thing_dataset_id_to_contiguous_id"]
+    novel_id_map = metadata["novel_dataset_id_to_contiguous_id"]
+
+    dataset_dicts = []
+    ann_keys = ["iscrowd", "bbox", "category_id"]
+
+    for (img_dict, anno_dict_list) in imgs_anns:
+        record = {}
+        record["file_name"] = os.path.join(
+            image_root, img_dict["file_name"]
+        )
+        record["height"] = img_dict["height"]
+        record["width"] = img_dict["width"]
+        image_id = record["image_id"] = img_dict["id"]
+        objs = []
+
+        contain_novel_cat = False
+        for anno in anno_dict_list:
+            assert anno["image_id"] == image_id
+            assert anno.get("ignore", 0) == 0
+            obj = {key: anno[key] for key in ann_keys if key in anno}
+            if obj["category_id"] in novel_id_map:
+                contain_novel_cat = True
+                break
+
+            obj["bbox_mode"] = BoxMode.XYWH_ABS
+            if obj["category_id"] in id_map:
+                obj["category_id"] = id_map[obj["category_id"]]
+                objs.append(obj)
+        if contain_novel_cat:
+            continue
+        record["annotations"] = objs
+        dataset_dicts.append(record)
+
+    return dataset_dicts
+
+
 def register_meta_coco(name, metadata, imgdir, annofile):
-    DatasetCatalog.register(
-        name,
-        lambda: load_coco_json(annofile, imgdir, metadata, name),
-    )
+    if name == 'coco_trainval_base':
+        DatasetCatalog.register(
+            name,
+            lambda: load_coco_json_filter_novel(annofile, imgdir, metadata, name),
+        )
+    else:
+        DatasetCatalog.register(
+            name,
+            lambda: load_coco_json(annofile, imgdir, metadata, name),
+        )
 
     # 在这里控制 dataset 标注的类别（thing_classes）
     if "_base" in name or "_novel" in name:

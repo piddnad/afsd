@@ -406,9 +406,7 @@ def _get_coco_fewshot_instances_meta():
     base_ids = [k["id"] for k in base_categories]
     base_dataset_id_to_contiguous_id = {k: i for i, k in enumerate(base_ids)}
     base_classes = [k["name"] for k in base_categories]
-    ret[
-        "novel_dataset_id_to_contiguous_id"
-    ] = novel_dataset_id_to_contiguous_id
+    ret["novel_dataset_id_to_contiguous_id"] = novel_dataset_id_to_contiguous_id
     ret["novel_classes"] = novel_classes
     ret["base_dataset_id_to_contiguous_id"] = base_dataset_id_to_contiguous_id
     ret["base_classes"] = base_classes

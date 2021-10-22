@@ -64,7 +64,7 @@ def generate_seeds(args):
                             break
                     if len(sample_shots) == shots:
                         break
-                # 对于每个category_id的每个shot，构造出一个和coco标注格式类似的json，包含shot个annotations，小于等于shot个images
+                # 对于每个category_id的每个shot，构造出一个类似coco标注格式的json，包含shot个annotations，小于等于shot个images
                 new_data = {
                     'info': data['info'],
                     'licenses': data['licenses'],

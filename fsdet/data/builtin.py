@@ -87,16 +87,8 @@ def register_all_coco(root="datasets"):
 
     # register meta datasets
     METASPLITS = [
-        (
-            "coco_trainval_all",
-            "coco/trainval2014",
-            "cocosplit/datasplit/trainvalno5k.json",
-        ),
-        (
-            "coco_trainval_base",
-            "coco/trainval2014",
-            "cocosplit/datasplit/trainvalno5k.json",
-        ),
+        ("coco_trainval_all", "coco/trainval2014", "cocosplit/datasplit/trainvalno5k.json",),
+        ("coco_trainval_base", "coco/trainval2014", "cocosplit/datasplit/trainvalno5k.json",),
         ("coco_test_all", "coco/val2014", "cocosplit/datasplit/5k.json"),
         ("coco_test_base", "coco/val2014", "cocosplit/datasplit/5k.json"),
         ("coco_test_novel", "coco/val2014", "cocosplit/datasplit/5k.json"),
