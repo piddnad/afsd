@@ -500,6 +500,9 @@ class StandardROIHeads(ROIHeads):
 class SoftLabelROIHeads(StandardROIHeads):
     def __init__(self, cfg, input_shape):
         super().__init__(cfg, input_shape)
+        self._init_soft_label_head(cfg, input_shape)
+
+    def _init_soft_label_head(self, cfg, input_shape):
         # fmt: on
         self.fc_dim               = cfg.MODEL.ROI_BOX_HEAD.FC_DIM
         self.temperature          = cfg.MODEL.ROI_BOX_HEAD.SOFT_LABEL_BRANCH.TEMPERATURE
@@ -530,8 +533,8 @@ class SoftLabelROIHeads(StandardROIHeads):
         pred_base_class_logits = self.base_classifier(box_features)
         pred_base_class_logits = F.log_softmax(pred_base_class_logits / self.temperature, dim=-1)
         with torch.no_grad():
-            soft_label_base_class = self.pretrain_classifier(box_features)
-        soft_label_base_class = F.log_softmax(soft_label_base_class / self.temperature, dim=-1)
+            base_class_targets = self.pretrain_classifier(box_features)
+            base_class_targets = F.log_softmax(base_class_targets / self.temperature, dim=-1)
 
         del box_features
 
@@ -542,7 +545,7 @@ class SoftLabelROIHeads(StandardROIHeads):
             proposals,
             self.smooth_l1_beta,
             pred_base_class_logits,
-            soft_label_base_class,
+            base_class_targets,
             self.criterion,
             self.soft_target_loss_weight,
             self.box_reg_weight,

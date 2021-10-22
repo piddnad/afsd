@@ -476,7 +476,7 @@ class FastRCNNSoftLabelOutputs(FastRCNNOutputs):
         proposals,
         smooth_l1_beta,
         pred_base_class_logits,
-        soft_label_base_class,
+        base_class_targets,
         criterion,
         soft_target_loss_weight,
         box_reg_weight,
@@ -495,7 +495,7 @@ class FastRCNNSoftLabelOutputs(FastRCNNOutputs):
         self.smooth_l1_beta = smooth_l1_beta
 
         self.pred_base_class_logits = pred_base_class_logits
-        self.soft_label_base_class = soft_label_base_class
+        self.base_class_targets = base_class_targets
         self.criterion = criterion
         self.soft_target_loss_weight = soft_target_loss_weight
         self.box_reg_weight = box_reg_weight
@@ -515,7 +515,8 @@ class FastRCNNSoftLabelOutputs(FastRCNNOutputs):
             self.gt_classes = cat([p.gt_classes for p in proposals], dim=0)
 
     def soft_target_loss(self):
-        soft_target_loss = self.criterion(self.pred_base_class_logits, self.soft_label_base_class)
+        # soft_target_loss = self.criterion(self.pred_base_class_logits, self.base_class_targets)
+        soft_target_loss = F.cross_entropy(self.pred_base_class_logits, self.base_class_targets, reduction="mean")
         return soft_target_loss
 
     def losses(self):
