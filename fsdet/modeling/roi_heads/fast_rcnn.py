@@ -486,7 +486,7 @@ class SoftLabelOutputLayers(nn.Module):
             box_dim (int): the dimension of bounding boxes.
                 Example box dimensions: 4 for regular XYXY boxes and 5 for rotated XYWHA boxes
         """
-        super(CosineSimOutputLayers, self).__init__()
+        super(SoftLabelOutputLayers, self).__init__()
 
         if not isinstance(input_size, int):
             input_size = np.prod(input_size)
