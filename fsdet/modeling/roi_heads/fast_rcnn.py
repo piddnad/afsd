@@ -502,15 +502,15 @@ class SoftLabelOutputLayers(nn.Module):
         num_bbox_reg_classes = 1 if cls_agnostic_bbox_reg else num_classes
         self.bbox_pred = nn.Linear(input_size, num_bbox_reg_classes * box_dim)
 
+        # base classifier
+        self.num_classes_base = cfg.MODEL.ROI_BOX_HEAD.SOFT_LABEL_BRANCH.NUM_CLASSES
+        self.base_classifier = nn.Linear(input_size, self.num_classes_base + 1)
+
         nn.init.normal_(self.cls_score.weight, std=0.01)
         nn.init.normal_(self.bbox_pred.weight, std=0.001)
         nn.init.normal_(self.base_classifier.weight, std=0.01)
         for l in [self.bbox_pred, self.base_classifier]:
             nn.init.constant_(l.bias, 0)
-
-        # base classifier
-        self.num_classes_base = cfg.MODEL.ROI_BOX_HEAD.SOFT_LABEL_BRANCH.NUM_CLASSES
-        self.base_classifier = nn.Linear(input_size, self.num_classes_base + 1)
 
     def forward(self, x):
         if x.dim() > 2:
