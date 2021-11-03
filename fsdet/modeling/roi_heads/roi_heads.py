@@ -514,8 +514,8 @@ class SoftLabelROIHeads(StandardROIHeads):
         self.base_weight_path     = cfg.MODEL.ROI_BOX_HEAD.SOFT_LABEL_BRANCH.BASE_WEIGHTS
         # fmt: off
 
-        self.base_classifier = nn.Linear(self.fc_dim, self.num_classes + 1)
-        weight_init.c2_xavier_fill(self.base_classifier)
+        # self.base_classifier = nn.Linear(self.fc_dim, self.num_classes + 1)
+        # weight_init.c2_xavier_fill(self.base_classifier)
         self.pretrain_classifier = nn.Linear(self.fc_dim, self.num_classes + 1)
         pretrained_dict = torch.load(self.base_weight_path)
         load_layers = ['roi_heads.box_predictor.cls_score.weight', 'roi_heads.box_predictor.cls_score.bias']
@@ -528,10 +528,10 @@ class SoftLabelROIHeads(StandardROIHeads):
     def _forward_box(self, features, proposals):
         box_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
         box_features = self.box_head(box_features)  # [None, FC_DIM]
-        pred_class_logits, pred_proposal_deltas = self.box_predictor(box_features)
+        pred_class_logits, pred_proposal_deltas, pred_class_logits_base = self.box_predictor(box_features)
 
-        pred_base_class_logits = self.base_classifier(box_features)
-        pred_base_class_logits = F.log_softmax(pred_base_class_logits / self.temperature, dim=-1)
+        # pred_base_class_logits = self.base_classifier(box_features)
+        pred_class_logits_base = F.log_softmax(pred_class_logits_base / self.temperature, dim=-1)
         with torch.no_grad():
             base_class_targets = self.pretrain_classifier(box_features)
             base_class_targets = F.log_softmax(base_class_targets / self.temperature, dim=-1)
@@ -544,7 +544,7 @@ class SoftLabelROIHeads(StandardROIHeads):
             pred_proposal_deltas,
             proposals,
             self.smooth_l1_beta,
-            pred_base_class_logits,
+            pred_class_logits_base,
             base_class_targets,
             self.criterion,
             self.soft_target_loss_weight,
@@ -558,3 +558,13 @@ class SoftLabelROIHeads(StandardROIHeads):
                 self.test_score_thresh, self.test_nms_thresh, self.test_detections_per_img
             )
             return pred_instances
+
+
+@ROI_HEADS_REGISTRY.register()
+class DiscriminativeROIHeads(StandardROIHeads):
+    def __init__(self, cfg, input_shape):
+        super().__init__(cfg, input_shape)
+        self._init_roi_discriminator(cfg, input_shape)
+
+    def _init_roi_discriminator(self, cfg, input_shape):
+        pass

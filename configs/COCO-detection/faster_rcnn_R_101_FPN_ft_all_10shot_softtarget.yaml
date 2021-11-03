@@ -17,7 +17,7 @@ MODEL:
   ROI_HEADS:
     NAME: "SoftLabelROIHeads"
     NUM_CLASSES: 80
-    OUTPUT_LAYER: "CosineSimOutputLayers"
+    OUTPUT_LAYER: "SoftLabelOutputLayers"
     FREEZE_FEAT: False
     BATCH_SIZE_PER_IMAGE: 256  # 512
     POSITIVE_FRACTION: 0.5  # 0.25

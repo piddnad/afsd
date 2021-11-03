@@ -464,6 +464,78 @@ class CosineSimOutputLayers(nn.Module):
         return scores, proposal_deltas
 
 
+@ROI_HEADS_OUTPUT_REGISTRY.register()
+class SoftLabelOutputLayers(nn.Module):
+    """
+    Three outputs
+    (1) proposal-to-detection box regression deltas (the same as
+        the FastRCNNOutputLayers)
+    (2) classification score is based on cosine_similarity
+    (3) (*new) classification score for 60 base class
+    """
+
+    def __init__(
+        self, cfg, input_size, num_classes, cls_agnostic_bbox_reg, box_dim=4
+    ):
+        """
+        Args:
+            cfg: config
+            input_size (int): channels, or (channels, height, width)
+            num_classes (int): number of foreground classes
+            cls_agnostic_bbox_reg (bool): whether to use class agnostic for bbox regression
+            box_dim (int): the dimension of bounding boxes.
+                Example box dimensions: 4 for regular XYXY boxes and 5 for rotated XYWHA boxes
+        """
+        super(CosineSimOutputLayers, self).__init__()
+
+        if not isinstance(input_size, int):
+            input_size = np.prod(input_size)
+
+        # The prediction layer for num_classes foreground classes and one
+        # background class
+        # (hence + 1)
+        self.cls_score = nn.Linear(input_size, num_classes + 1, bias=False)
+        self.scale = cfg.MODEL.ROI_HEADS.COSINE_SCALE
+        if self.scale == -1:
+            # learnable global scaling factor
+            self.scale = nn.Parameter(torch.ones(1) * 20.0)
+        num_bbox_reg_classes = 1 if cls_agnostic_bbox_reg else num_classes
+        self.bbox_pred = nn.Linear(input_size, num_bbox_reg_classes * box_dim)
+
+        nn.init.normal_(self.cls_score.weight, std=0.01)
+        nn.init.normal_(self.bbox_pred.weight, std=0.001)
+        nn.init.normal_(self.base_classifier.weight, std=0.01)
+        for l in [self.bbox_pred, self.base_classifier]:
+            nn.init.constant_(l.bias, 0)
+
+        # base classifier
+        self.num_classes_base = cfg.MODEL.ROI_BOX_HEAD.SOFT_LABEL_BRANCH.NUM_CLASSES
+        self.base_classifier = nn.Linear(input_size, self.num_classes_base + 1)
+
+    def forward(self, x):
+        if x.dim() > 2:
+            x = torch.flatten(x, start_dim=1)
+
+        # normalize the input x along the `input_size` dimension
+        x_norm = torch.norm(x, p=2, dim=1).unsqueeze(1).expand_as(x)
+        x_normalized = x.div(x_norm + 1e-5)
+
+        # normalize weight
+        temp_norm = (
+            torch.norm(self.cls_score.weight.data, p=2, dim=1)
+            .unsqueeze(1)
+            .expand_as(self.cls_score.weight.data)
+        )
+        self.cls_score.weight.data = self.cls_score.weight.data.div(
+            temp_norm + 1e-5
+        )
+        cos_dist = self.cls_score(x_normalized)
+        scores = self.scale * cos_dist
+        proposal_deltas = self.bbox_pred(x)
+        base_scores = self.base_classifier(x)
+        return scores, proposal_deltas, base_scores
+
+
 class FastRCNNSoftLabelOutputs(FastRCNNOutputs):
     """
     Add a soft target loss branch for FastRCNNOutputs
@@ -515,8 +587,8 @@ class FastRCNNSoftLabelOutputs(FastRCNNOutputs):
             self.gt_classes = cat([p.gt_classes for p in proposals], dim=0)
 
     def soft_target_loss(self):
-        # soft_target_loss = self.criterion(self.pred_base_class_logits, self.base_class_targets)
-        soft_target_loss = F.cross_entropy(self.pred_base_class_logits, self.base_class_targets, reduction="mean")
+        soft_target_loss = self.criterion(self.pred_base_class_logits, self.base_class_targets)
+        # soft_target_loss = F.cross_entropy(self.pred_base_class_logits, self.base_class_targets, reduction="mean")
         return soft_target_loss
 
     def losses(self):
@@ -528,3 +600,57 @@ class FastRCNNSoftLabelOutputs(FastRCNNOutputs):
                 'loss_box_reg': self.box_reg_weight * self.smooth_l1_loss(),
                 'loss_soft_target': self.soft_target_loss_weight * self.soft_target_loss(),
             }
+
+
+class FastRCNNWithDiscriminatorOutputs(FastRCNNOutputs):
+    """
+    Add a soft target loss branch for FastRCNNOutputs
+    """
+    def __init__(
+        self,
+        box2box_transform,
+        pred_class_logits,
+        pred_proposal_deltas,
+        proposals,
+        smooth_l1_beta,
+        pred_base_class_logits,
+        base_class_targets,
+        criterion,
+        soft_target_loss_weight,
+        box_reg_weight,
+        stl_head_only,
+    ):
+        """
+        Args:
+            box_cls_feat_con (Tensor): the projected features
+                to calculate supervised contrastive loss upon
+            criterion (SupConLoss <- nn.Module): SupConLoss is implemented in fsdet/modeling/contrastive_loss.py
+        """
+        self.box2box_transform = box2box_transform
+        self.pred_class_logits = pred_class_logits
+        self.pred_proposal_deltas = pred_proposal_deltas
+        self.num_preds_per_image = [len(p) for p in proposals]
+        self.smooth_l1_beta = smooth_l1_beta
+
+        self.pred_base_class_logits = pred_base_class_logits
+        self.base_class_targets = base_class_targets
+        self.criterion = criterion
+        self.soft_target_loss_weight = soft_target_loss_weight
+        self.box_reg_weight = box_reg_weight
+
+        self.stl_head_only = stl_head_only
+
+        box_type = type(proposals[0].proposal_boxes)
+        # cat(..., dim=0) concatenates over all images in the batch
+        self.proposals = box_type.cat([p.proposal_boxes for p in proposals])  # self.proposals = List[Boxes]
+        assert not self.proposals.tensor.requires_grad, "Proposals should not require gradients!"
+        self.image_shapes = [x.image_size for x in proposals]
+
+        # The following fields should exist only when training.
+        if proposals[0].has("gt_boxes"):
+            self.gt_boxes = box_type.cat([p.gt_boxes for p in proposals])
+            assert proposals[0].has("gt_classes")
+            self.gt_classes = cat([p.gt_classes for p in proposals], dim=0)
+
+    def d_loss(self):
+        pass
