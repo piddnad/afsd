@@ -634,8 +634,8 @@ class FastRCNNWithDiscriminatorOutputs(FastRCNNOutputs):
         assert not self.proposals.tensor.requires_grad, "Proposals should not require gradients!"
         self.image_shapes = [x.image_size for x in proposals]
 
-        coco_novel_class = torch.tensor([1, 2, 3, 4, 5, 6, 7, 9, 16, 17,
-                            18, 19, 20, 21, 44, 62, 63, 64, 67, 72,])
+        coco_novel_class = [1, 2, 3, 4, 5, 6, 7, 9, 16, 17,
+                            18, 19, 20, 21, 44, 62, 63, 64, 67, 72,]
 
         # The following fields should exist only when training.
         if proposals[0].has("gt_boxes"):
@@ -643,9 +643,11 @@ class FastRCNNWithDiscriminatorOutputs(FastRCNNOutputs):
             assert proposals[0].has("gt_classes")
             self.gt_classes = cat([p.gt_classes for p in proposals], dim=0)
             print(self.gt_classes)
+
             self.is_novel_class = self.gt_classes.clone()
-            self.is_novel_class[torch.any(torch.unsqueeze(self.is_novel_class, 1) == coco_novel_class)] = 0
-            self.is_novel_class = torch.where(self.is_novel_class == 0, self.is_novel_class, 1)
+            for c in coco_novel_class:
+                self.is_novel_class = torch.where(self.is_novel_class != c, self.is_novel_class, 1)
+            self.is_novel_class = torch.where(self.is_novel_class == 1, self.is_novel_class, 0)
             print(self.is_novel_class)
 
     def d_loss(self):
