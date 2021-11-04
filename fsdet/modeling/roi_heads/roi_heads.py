@@ -568,7 +568,7 @@ class DiscriminativeROIHeads(StandardROIHeads):
 
     def _init_roi_discriminator(self, cfg, input_shape):
         # The RoI Discriminator is to classify an RoI feature as base/novel
-        self.roi_discriminator = nn.Linear(input_shape, 2)
+        self.roi_discriminator = nn.Linear(np.prod(input_shape), 2)
         nn.init.normal_(self.roi_discriminator.weight, std=0.01)
         for l in [self.roi_discriminator]:
             nn.init.constant_(l.bias, 0)
