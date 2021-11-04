@@ -17,7 +17,7 @@ from detectron2.utils.registry import Registry
 from typing import Dict
 
 from .box_head import build_box_head
-from .fast_rcnn import ROI_HEADS_OUTPUT_REGISTRY, FastRCNNOutputLayers, FastRCNNOutputs, FastRCNNSoftLabelOutputs
+from .fast_rcnn import ROI_HEADS_OUTPUT_REGISTRY, FastRCNNOutputLayers, FastRCNNOutputs, FastRCNNSoftLabelOutputs, FastRCNNWithDiscriminatorOutputs
 import fvcore.nn.weight_init as weight_init
 import torch.nn.functional as F
 
@@ -503,7 +503,7 @@ class SoftLabelROIHeads(StandardROIHeads):
         self._init_soft_label_head(cfg, input_shape)
 
     def _init_soft_label_head(self, cfg, input_shape):
-        # fmt: on
+        # fmt: off
         self.fc_dim               = cfg.MODEL.ROI_BOX_HEAD.FC_DIM
         self.temperature          = cfg.MODEL.ROI_BOX_HEAD.SOFT_LABEL_BRANCH.TEMPERATURE
         self.soft_target_loss_weight = cfg.MODEL.ROI_BOX_HEAD.SOFT_LABEL_BRANCH.LOSS_WEIGHT
@@ -512,7 +512,7 @@ class SoftLabelROIHeads(StandardROIHeads):
         self.num_classes          = cfg.MODEL.ROI_BOX_HEAD.SOFT_LABEL_BRANCH.NUM_CLASSES
         self.stl_head_only        = cfg.MODEL.ROI_BOX_HEAD.SOFT_LABEL_BRANCH.HEAD_ONLY
         self.base_weight_path     = cfg.MODEL.ROI_BOX_HEAD.SOFT_LABEL_BRANCH.BASE_WEIGHTS
-        # fmt: off
+        # fmt: on
 
         # self.base_classifier = nn.Linear(self.fc_dim, self.num_classes + 1)
         # weight_init.c2_xavier_fill(self.base_classifier)
@@ -567,4 +567,40 @@ class DiscriminativeROIHeads(StandardROIHeads):
         self._init_roi_discriminator(cfg, input_shape)
 
     def _init_roi_discriminator(self, cfg, input_shape):
-        pass
+        # The RoI Discriminator is to classify an RoI feature as base/novel
+        self.roi_discriminator = nn.Linear(input_shape, 2)
+        nn.init.normal_(self.roi_discriminator.weight, std=0.01)
+        for l in [self.roi_discriminator]:
+            nn.init.constant_(l.bias, 0)
+
+    def _forward_box(self, features, proposals):
+        box_features = self.box_pooler(
+            features, [x.proposal_boxes for x in proposals]
+        )
+        box_features = self.box_head(box_features)
+        pred_class_logits, pred_proposal_deltas = self.box_predictor(
+            box_features
+        )
+        pred_base_or_novel_class_logits = self.roi_discriminator(
+            box_features
+        )
+        del box_features
+
+        outputs = FastRCNNWithDiscriminatorOutputs(
+            self.box2box_transform,
+            pred_class_logits,
+            pred_proposal_deltas,
+            pred_base_or_novel_class_logits,
+            proposals,
+            self.smooth_l1_beta,
+        )
+        if self.training:
+            return outputs.losses()
+        else:
+            pred_instances, _ = outputs.inference(
+                self.test_score_thresh,
+                self.test_nms_thresh,
+                self.test_detections_per_img,
+            )
+            return pred_instances
+

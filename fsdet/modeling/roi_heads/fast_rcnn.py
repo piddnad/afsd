@@ -611,34 +611,22 @@ class FastRCNNWithDiscriminatorOutputs(FastRCNNOutputs):
         box2box_transform,
         pred_class_logits,
         pred_proposal_deltas,
+        pred_base_or_novel_class_logits,
         proposals,
         smooth_l1_beta,
-        pred_base_class_logits,
-        base_class_targets,
-        criterion,
-        soft_target_loss_weight,
-        box_reg_weight,
-        stl_head_only,
     ):
         """
         Args:
-            box_cls_feat_con (Tensor): the projected features
-                to calculate supervised contrastive loss upon
-            criterion (SupConLoss <- nn.Module): SupConLoss is implemented in fsdet/modeling/contrastive_loss.py
+            pred_base_or_novel_class_logits (Tensor): A tensor of shape (R, 2)
+                storing the predicted base or novel class logits for all R predicted object instances.
+                Each row corresponds to a predicted object instance.
         """
         self.box2box_transform = box2box_transform
         self.pred_class_logits = pred_class_logits
         self.pred_proposal_deltas = pred_proposal_deltas
+        self.pred_base_or_novel_class_logits = pred_base_or_novel_class_logits
         self.num_preds_per_image = [len(p) for p in proposals]
         self.smooth_l1_beta = smooth_l1_beta
-
-        self.pred_base_class_logits = pred_base_class_logits
-        self.base_class_targets = base_class_targets
-        self.criterion = criterion
-        self.soft_target_loss_weight = soft_target_loss_weight
-        self.box_reg_weight = box_reg_weight
-
-        self.stl_head_only = stl_head_only
 
         box_type = type(proposals[0].proposal_boxes)
         # cat(..., dim=0) concatenates over all images in the batch
@@ -646,11 +634,33 @@ class FastRCNNWithDiscriminatorOutputs(FastRCNNOutputs):
         assert not self.proposals.tensor.requires_grad, "Proposals should not require gradients!"
         self.image_shapes = [x.image_size for x in proposals]
 
+        coco_novel_class = [1, 2, 3, 4, 5, 6, 7, 9, 16, 17,
+                            18, 19, 20, 21, 44, 62, 63, 64, 67, 72,]
+
         # The following fields should exist only when training.
         if proposals[0].has("gt_boxes"):
             self.gt_boxes = box_type.cat([p.gt_boxes for p in proposals])
             assert proposals[0].has("gt_classes")
             self.gt_classes = cat([p.gt_classes for p in proposals], dim=0)
+            print(self.gt_classes)
+            from IPython import embed; embed()
+            # self.is_novel_class = cat([1 if p.gt_classes in ], dim=0)
 
     def d_loss(self):
-        pass
+        """
+        Compute the softmax cross entropy loss for box classification.
+
+        Returns:
+            scalar Tensor
+        """
+        # self._log_accuracy()
+        return F.cross_entropy(
+            self.pred_base_or_novel_class_logits, self.is_novel_class, reduction="mean"
+        )
+
+    def losses(self):
+        return {
+            "loss_cls": self.softmax_cross_entropy_loss(),
+            "loss_box_reg": self.smooth_l1_loss(),
+            "loss_D": self.d_loss(),
+        }
