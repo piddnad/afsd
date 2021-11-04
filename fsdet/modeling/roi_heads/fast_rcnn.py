@@ -643,8 +643,8 @@ class FastRCNNWithDiscriminatorOutputs(FastRCNNOutputs):
             assert proposals[0].has("gt_classes")
             self.gt_classes = cat([p.gt_classes for p in proposals], dim=0)
             print(self.gt_classes)
-            from IPython import embed; embed()
-            # self.is_novel_class = cat([1 if p.gt_classes in ], dim=0)
+            self.is_novel_class = cat([1 if c in coco_novel_class else 0 for c in self.gt_classes], dim=0)
+            print(self.gt_classes)
 
     def d_loss(self):
         """
