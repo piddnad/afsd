@@ -72,9 +72,9 @@ def ckpt_surgery(args):
         else:
             new_weight[:prev_cls] = pretrained_weight[:prev_cls]
 
-        # TODO：这里或许可以修改为random，因为novel在base training的时候实际是当成背景的
-        if 'cls_score' in param_name:
-            new_weight[-1] = pretrained_weight[-1]  # bg class
+        print('No dealing with bg class weights') # not to deal with background 
+        # if 'cls_score' in param_name:
+        #     new_weight[-1] = pretrained_weight[-1]  # bg class
         ckpt['model'][weight_name] = new_weight
 
     surgery_loop(args, surgery)

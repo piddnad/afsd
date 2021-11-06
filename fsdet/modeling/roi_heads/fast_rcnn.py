@@ -642,13 +642,13 @@ class FastRCNNWithDiscriminatorOutputs(FastRCNNOutputs):
             self.gt_boxes = box_type.cat([p.gt_boxes for p in proposals])
             assert proposals[0].has("gt_classes")
             self.gt_classes = cat([p.gt_classes for p in proposals], dim=0)
-            print(self.gt_classes)
+            # print(self.gt_classes)
 
             self.is_novel_class = self.gt_classes.clone()
             for c in coco_novel_class:
                 self.is_novel_class = torch.where(self.is_novel_class != c, self.is_novel_class, 1)
             self.is_novel_class = torch.where(self.is_novel_class == 1, self.is_novel_class, 0)
-            print(self.is_novel_class)
+            # print(self.is_novel_class)
 
     def d_loss(self):
         """
