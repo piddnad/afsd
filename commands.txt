@@ -1,0 +1,54 @@
+# 1 base train
+python3 -m tools.train_net --num-gpus 8 \
+        --config-file configs/COCO-detection/faster_rcnn_R_101_FPN_base.yaml \
+        --opts OUTPUT_DIR checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_base_filter_novel
+
+python3 -m tools.train_net --num-gpus 8 \
+        --config-file configs/PascalVOC-detection/split1/faster_rcnn_R_101_FPN_base1.yaml
+
+
+# 2 ckpt surgery
+# coco
+python3 -m tools.ckpt_surgery \
+        --src1 checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_base_filter_novel/model_final.pth \
+        --method randinit \
+        --save-dir checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_all_filterN \
+        --coco
+# voc
+python3 -m tools.ckpt_surgery \
+        --src1 checkpoints/voc/faster_rcnn/faster_rcnn_R_101_FPN_base1/model_final.pth \
+        --method randinit \
+        --save-dir checkpoints/voc/faster_rcnn/faster_rcnn_R_101_FPN_all1
+
+
+# 3 finetuning
+# coco 10-shot
+python3 -m tools.train_net --num-gpus 8 \
+        --config-file configs/COCO-detection/faster_rcnn_R_101_FPN_ft_all_10shot_reproduce_fsce.yaml \
+        --opts MODEL.WEIGHTS checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_all_filterN/model_reset_surgery.pth \
+        OUTPUT_DIR checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_ft_all_10shot_filterN
+
+
+python3 -m tools.train_net --num-gpus 8 \
+        --config-file configs/COCO-detection/faster_rcnn_R_101_FPN_ft_all_10shot_reproduce_fsce.yaml \
+        --opts MODEL.WEIGHTS checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_all/model_reset_surgery_no_bg.pth \
+        OUTPUT_DIR checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_ft_all_10shot_fsceplus_iou0.4
+
+python3 -m tools.train_net --num-gpus 8 \
+        --config-file configs/COCO-detection/faster_rcnn_R_101_FPN_ft_all_10shot_softtarget.yaml \
+        --opts MODEL.WEIGHTS checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_all/model_reset_surgery_no_bg.pth \
+        OUTPUT_DIR checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_ft_all_softtarget_new
+
+
+# coco 30-shot
+python3 -m tools.train_net --num-gpus 8 \
+        --config-file configs/COCO-detection/faster_rcnn_R_101_FPN_ft_all_30shot_d.yaml \
+        --opts MODEL.WEIGHTS checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_all/model_reset_surgery_no_bg.pth \
+        OUTPUT_DIR checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_ft_all_30shot_d
+
+
+# voc 10-shot
+python3 -m tools.train_net --num-gpus 8 \
+        --config-file configs/PascalVOC-detection/split1/faster_rcnn_R_101_FPN_ft_all1_10shot.yaml \
+        --opts MODEL.WEIGHTS checkpoints/voc/faster_rcnn/faster_rcnn_R_101_FPN_all1/model_reset_surgery_no_bg.pth \
+               OUTPUT_DIR checkpoints/voc/faster_rcnn/faster_rcnn_R_101_FPN_ft_all1_10shot_d
