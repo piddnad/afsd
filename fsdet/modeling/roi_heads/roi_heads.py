@@ -616,6 +616,7 @@ class MultiFeatureAggregationROIHeads(StandardROIHeads):
         """
         See :class:`ROIHeads.forward`.
         """
+        self.image_shapes = images.image_sizes
         del images
         if self.training:
             assert targets, "'targets' argument is required during training"
@@ -634,8 +635,8 @@ class MultiFeatureAggregationROIHeads(StandardROIHeads):
     def _forward_box(self, features, proposals):
         # 计算新的2个scale的proposal_boxes
         proposal_boxes = [x.proposal_boxes for x in proposals]
-        part_boxes = self.modify_box_scale(proposal_boxes, 0.8)
-        context_boxes = self.modify_box_scale(proposal_boxes, 1.1)
+        part_boxes = self.modify_box_scale(proposal_boxes, 0.8, self.image_shapes)
+        context_boxes = self.modify_box_scale(proposal_boxes, 1.1, self.image_shapes)
 
         # 3个scale的proposal pooling
         # box_feature shape [n*batch_size, 256, 7, 7]
@@ -670,21 +671,28 @@ class MultiFeatureAggregationROIHeads(StandardROIHeads):
             )
             return pred_instances
 
-    def modify_box_scale(self, proposal_boxes, scale_factor):
+    def modify_box_scale(self, proposal_boxes, scale_factor, image_shapes):
         # 中心点不变，根据 scale_factor 缩放 proposal_boxes 的 scale
         new_boxes = []
-        for boxes in proposal_boxes:
+        for i, boxes in enumerate(proposal_boxes):
             width = boxes[:, 2] - boxes[:, 0]
             height = boxes[:, 3] - boxes[:, 1]
             ctr_x = boxes[:, 0] + 0.5 * width
             ctr_y = boxes[:, 1] + 0.5 * height
             width, height = width * scale_factor, height * scale_factor
 
-            x1 = ctr_x - width/2
-            y1 = ctr_y - height/2
-            x2 = ctr_x + width/2
-            y2 = ctr_y + height/2
-            boxes = torch.stack((x1, y1, x2, y2), dim=1)
+            x1 = ctr_x - 0.5 * width
+            y1 = ctr_y - 0.5 * height
+            x2 = ctr_x + 0.5 * width
+            y2 = ctr_y + 0.5 * height
+
+            h, w = image_shapes[i]
+            x1 = x1.clamp(min=0, max=w)
+            y1 = y1.clamp(min=0, max=h)
+            x2 = x2.clamp(min=0, max=w)
+            y2 = y2.clamp(min=0, max=h)
+
+            boxes = torch.stack((x1, y1, x2, y2), dim=-1)
         new_boxes.append(boxes)
         return new_boxes
 

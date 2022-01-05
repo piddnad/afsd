@@ -38,4 +38,4 @@ TEST:
     ENABLED: True
   EVAL_PERIOD: 5000
 
-OUTPUT_DIR: "checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_ft_all_10shot_mfa "
+OUTPUT_DIR: "checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_ft_all_10shot_mfa"
