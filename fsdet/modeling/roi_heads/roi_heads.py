@@ -606,6 +606,7 @@ class DiscriminativeROIHeads(StandardROIHeads):
             return pred_instances
 
 
+@ROI_HEADS_REGISTRY.register()
 class MultiFeatureAggregationROIHeads(StandardROIHeads):
     # def __init__(self, cfg, input_shape):
     #     super(StandardROIHeads, self).__init__(cfg, input_shape)
