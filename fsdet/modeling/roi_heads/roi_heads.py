@@ -605,3 +605,85 @@ class DiscriminativeROIHeads(StandardROIHeads):
             )
             return pred_instances
 
+
+class MultiFeatureAggregationROIHeads(StandardROIHeads):
+    # def __init__(self, cfg, input_shape):
+    #     super(StandardROIHeads, self).__init__(cfg, input_shape)
+    #     self._init_box_head(cfg)
+
+    def forward(self, images, features, proposals, targets=None):
+        """
+        See :class:`ROIHeads.forward`.
+        """
+        del images
+        if self.training:
+            assert targets, "'targets' argument is required during training"
+            proposals = self.label_and_sample_proposals(proposals, targets)
+        del targets
+
+        features_list = [features[f] for f in self.in_features]
+
+        if self.training:
+            losses = self._forward_box(features_list, proposals)
+            return proposals, losses
+        else:
+            pred_instances = self._forward_box(features_list, proposals)
+            return pred_instances, {}
+
+    def _forward_box(self, features, proposals):
+        # 计算新的2个scale的proposal_boxes
+        proposal_boxes = [x.proposal_boxes for x in proposals]
+        part_boxes = self.modify_box_scale(proposal_boxes, 0.8)
+        context_boxes = self.modify_box_scale(proposal_boxes, 1.1)
+
+        # 3个scale的proposal pooling
+        # box_feature shape [n*batch_size, 256, 7, 7]
+        # a common configuration: n*batch_size = 512*16 = 8192
+        box_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
+        part_features = self.box_pooler(features, part_boxes)
+        context_features = self.box_pooler(features, context_boxes)
+
+        # concate + 1x1 conv
+        box_features = torch.cat((box_features, part_features, context_features), 1)
+        conv = nn.Conv2d(in_channels=3*256, out_channels=256, kernel_size=1, stride=1, padding=0)
+        box_features = conv(box_features)
+
+        box_features = self.box_head(box_features)
+        pred_class_logits, pred_proposal_deltas = self.box_predictor(box_features)
+        del box_features
+
+        outputs = FastRCNNOutputs(
+            self.box2box_transform,
+            pred_class_logits,
+            pred_proposal_deltas,
+            proposals,
+            self.smooth_l1_beta,
+        )
+        if self.training:
+            return outputs.losses()
+        else:
+            pred_instances, _ = outputs.inference(
+                self.test_score_thresh,
+                self.test_nms_thresh,
+                self.test_detections_per_img,
+            )
+            return pred_instances
+
+    def modify_box_scale(self, proposal_boxes, scale_factor):
+        # 中心点不变，根据 scale_factor 缩放 proposal_boxes 的 scale
+        new_boxes = []
+        for boxes in proposal_boxes:
+            width = boxes[:, 2] - boxes[:, 0]
+            height = boxes[:, 3] - boxes[:, 1]
+            ctr_x = boxes[:, 0] + 0.5 * width
+            ctr_y = boxes[:, 1] + 0.5 * height
+            width, height = width * scale_factor, height * scale_factor
+
+            x1 = ctr_x - width/2
+            y1 = ctr_y - height/2
+            x2 = ctr_x + width/2
+            y2 = ctr_y + height/2
+            boxes = torch.stack((x1, y1, x2, y2), dim=1)
+        new_boxes.append(boxes)
+        return new_boxes
+
