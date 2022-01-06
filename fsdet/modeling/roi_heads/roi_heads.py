@@ -675,10 +675,11 @@ class MultiFeatureAggregationROIHeads(StandardROIHeads):
         # 中心点不变，根据 scale_factor 缩放 proposal_boxes 的 scale
         new_boxes = []
         for i, boxes in enumerate(proposal_boxes):
-            width = boxes[:, 2] - boxes[:, 0]
-            height = boxes[:, 3] - boxes[:, 1]
-            ctr_x = boxes[:, 0] + 0.5 * width
-            ctr_y = boxes[:, 1] + 0.5 * height
+            # print(boxes.tensor.shape)  # [256,4]
+            width = boxes.tensor[:, 2] - boxes.tensor[:, 0]
+            height = boxes.tensor[:, 3] - boxes.tensor[:, 1]
+            ctr_x = boxes.tensor[:, 0] + 0.5 * width
+            ctr_y = boxes.tensor[:, 1] + 0.5 * height
             width, height = width * scale_factor, height * scale_factor
 
             x1 = ctr_x - 0.5 * width
@@ -693,6 +694,7 @@ class MultiFeatureAggregationROIHeads(StandardROIHeads):
             y2 = y2.clamp(min=0, max=h)
 
             boxes = torch.stack((x1, y1, x2, y2), dim=-1)
+            boxes = Boxes(boxes)
         new_boxes.append(boxes)
         return new_boxes
 
