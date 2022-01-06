@@ -695,6 +695,6 @@ class MultiFeatureAggregationROIHeads(StandardROIHeads):
 
             boxes = torch.stack((x1, y1, x2, y2), dim=-1)
             boxes = Boxes(boxes)
-        new_boxes.append(boxes)
+            new_boxes.append(boxes)
         return new_boxes
 
