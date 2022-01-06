@@ -608,9 +608,16 @@ class DiscriminativeROIHeads(StandardROIHeads):
 
 @ROI_HEADS_REGISTRY.register()
 class MultiFeatureAggregationROIHeads(StandardROIHeads):
-    # def __init__(self, cfg, input_shape):
-    #     super(StandardROIHeads, self).__init__(cfg, input_shape)
-    #     self._init_box_head(cfg)
+    def __init__(self, cfg, input_shape):
+        super(StandardROIHeads, self).__init__(cfg, input_shape)
+        self._init_box_head(cfg)
+        self._init_roi_feature_layer()
+
+    def _init_roi_feature_layer(self):
+        self.conv1x1 = nn.Conv2d(in_channels=3 * 256, out_channels=256, kernel_size=1, stride=1, padding=0)
+        # nn.init.normal_(self.conv1x1.weight, std=0.01)
+        # for l in [self.roi_discriminator]:
+        #     nn.init.constant_(conv1x1.bias, 0)
 
     def forward(self, images, features, proposals, targets=None):
         """
@@ -647,9 +654,7 @@ class MultiFeatureAggregationROIHeads(StandardROIHeads):
 
         # concate + 1x1 conv
         box_features = torch.cat((box_features, part_features, context_features), 1)
-        conv = nn.Conv2d(in_channels=3*256, out_channels=256, kernel_size=1, stride=1, padding=0)
-        box_features = conv(box_features)
-
+        box_features = self.conv1x1(box_features)
         box_features = self.box_head(box_features)
         pred_class_logits, pred_proposal_deltas = self.box_predictor(box_features)
         del box_features
