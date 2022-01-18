@@ -703,24 +703,23 @@ class MultiFeatureAggregationROIHeads(StandardROIHeads):
         # print(proposal_boxes[0], part_boxes[0], context_boxes[0], self.image_shapes[0])
 
         # 3个scale的proposal pooling
-        # box_feature shape [n*batch_size, 256, 7, 7]
-        # a common configuration: n*batch_size = 512*16 = 8192
+        # box_feature shape [n*batch_size, 256, 7, 7], a common configuration: n*batch_size = 512*16 = 8192
         box_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
         part_features = self.box_pooler(features, part_boxes)
         context_features = self.box_pooler(features, context_boxes)
-        # print(box_features[0,0,0], part_features[0,0,0])
-        # print(box_features.shape)
+        # print(box_features[0,0,0], part_features[0,0,0])  # to check if this is not equal: True
+        # print(box_features.shape)  # (1024, 256, 7, 7)
 
         # ----- method1: concate + one 1x1 conv -----
         # box_features = torch.cat((box_features, part_features, context_features), 1)
         # # print(box_features.shape)
         # box_features = self.conv1x1(box_features)
 
-        # ----- method2: 3 seperate box head + concate -----
+        # ----- method2: 3 separate box head + concate -----
         box_features = self.box_head(box_features)
         part_features = self.box_head_part(part_features)
         context_features = self.box_head_context(context_features)
-        print(box_features.shape)
+        # print(box_features.shape)  # (1024, 1024)
         box_features = torch.cat((box_features, part_features, context_features), 1)
         pred_class_logits, pred_proposal_deltas = self.box_predictor(box_features)
         del box_features
