@@ -613,6 +613,62 @@ class MultiFeatureAggregationROIHeads(StandardROIHeads):
         self._init_box_head(cfg)
         self._init_roi_feature_layer()
 
+    def _init_box_head(self, cfg):
+        # fmt: off
+        pooler_resolution = cfg.MODEL.ROI_BOX_HEAD.POOLER_RESOLUTION
+        pooler_scales     = tuple(1.0 / self.feature_strides[k] for k in self.in_features)
+        sampling_ratio    = cfg.MODEL.ROI_BOX_HEAD.POOLER_SAMPLING_RATIO
+        pooler_type       = cfg.MODEL.ROI_BOX_HEAD.POOLER_TYPE
+        # fmt: on
+
+        # If StandardROIHeads is applied on multiple feature maps (as in FPN),
+        # then we share the same predictors and therefore the channel counts must be the same
+        in_channels = [self.feature_channels[f] for f in self.in_features]
+        # Check all channel counts are equal
+        assert len(set(in_channels)) == 1, in_channels
+        in_channels = in_channels[0]
+
+        self.box_pooler = ROIPooler(
+            output_size=pooler_resolution,
+            scales=pooler_scales,
+            sampling_ratio=sampling_ratio,
+            pooler_type=pooler_type,
+        )
+        # Here we split "box head" and "box predictor", which is mainly due to historical reasons.
+        # They are used together so the "box predictor" layers should be part of the "box head".
+        # New subclasses of ROIHeads do not need "box predictor"s.
+        self.box_head = build_box_head(
+            cfg,
+            ShapeSpec(
+                channels=in_channels,
+                height=pooler_resolution,
+                width=pooler_resolution,
+            ),
+        )
+        self.box_head_part = build_box_head(
+            cfg,
+            ShapeSpec(
+                channels=in_channels,
+                height=pooler_resolution,
+                width=pooler_resolution,
+            ),
+        )
+        self.box_head_context = build_box_head(
+            cfg,
+            ShapeSpec(
+                channels=in_channels,
+                height=pooler_resolution,
+                width=pooler_resolution,
+            ),
+        )
+        output_layer = cfg.MODEL.ROI_HEADS.OUTPUT_LAYER
+        self.box_predictor = ROI_HEADS_OUTPUT_REGISTRY.get(output_layer)(
+            cfg,
+            self.box_head.output_size * 3,  # for 3 level feature concate
+            self.num_classes,
+            self.cls_agnostic_bbox_reg,
+        )
+
     def _init_roi_feature_layer(self):
         self.conv1x1 = nn.Conv2d(in_channels=3 * 256, out_channels=256, kernel_size=1, stride=1, padding=0)
         # nn.init.normal_(self.conv1x1.weight, std=0.01)
@@ -655,12 +711,17 @@ class MultiFeatureAggregationROIHeads(StandardROIHeads):
         # print(box_features[0,0,0], part_features[0,0,0])
         # print(box_features.shape)
 
-        # concate + 1x1 conv
-        box_features = torch.cat((box_features, part_features, context_features), 1)
-        # print(box_features.shape)
-        box_features = self.conv1x1(box_features)
+        # ----- method1: concate + one 1x1 conv -----
+        # box_features = torch.cat((box_features, part_features, context_features), 1)
+        # # print(box_features.shape)
+        # box_features = self.conv1x1(box_features)
 
+        # ----- method2: 3 seperate box head + concate -----
         box_features = self.box_head(box_features)
+        part_features = self.box_head_part(part_features)
+        context_features = self.box_head_context(context_features)
+        print(box_features.shape)
+        box_features = torch.cat((box_features, part_features, context_features), 1)
         pred_class_logits, pred_proposal_deltas = self.box_predictor(box_features)
         del box_features
 
