@@ -609,9 +609,9 @@ class DiscriminativeROIHeads(StandardROIHeads):
 @ROI_HEADS_REGISTRY.register()
 class MultiFeatureAggregationROIHeads(StandardROIHeads):
     def __init__(self, cfg, input_shape):
-        super(StandardROIHeads, self).__init__(cfg, input_shape)
-        self._init_box_head(cfg)
-        self._init_roi_feature_layer()
+        super().__init__(cfg, input_shape)
+        # self._init_box_head(cfg)
+        # self._init_roi_feature_layer()
 
     def _init_box_head(self, cfg):
         # fmt: off
