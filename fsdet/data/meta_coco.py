@@ -121,6 +121,7 @@ def load_coco_json(json_file, image_root, metadata, dataset_name):
     return dataset_dicts
 
 
+# load coco json & remove images containing novel object
 def load_coco_json_filter_novel(json_file, image_root, metadata, dataset_name):
     json_file = PathManager.get_local_path(json_file)
     with contextlib.redirect_stdout(io.StringIO()):
@@ -169,7 +170,7 @@ def load_coco_json_filter_novel(json_file, image_root, metadata, dataset_name):
 
 
 def register_meta_coco(name, metadata, imgdir, annofile):
-    if name == 'coco_trainval_base':
+    if name == 'coco_trainval_base_filter_novel':
         DatasetCatalog.register(
             name,
             lambda: load_coco_json_filter_novel(annofile, imgdir, metadata, name),
