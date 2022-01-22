@@ -52,3 +52,14 @@ python3 -m tools.train_net --num-gpus 8 \
         --config-file configs/PascalVOC-detection/split1/faster_rcnn_R_101_FPN_ft_all1_10shot.yaml \
         --opts MODEL.WEIGHTS checkpoints/voc/faster_rcnn/faster_rcnn_R_101_FPN_all1/model_reset_surgery_no_bg.pth \
                OUTPUT_DIR checkpoints/voc/faster_rcnn/faster_rcnn_R_101_FPN_ft_all1_10shot_d
+
+# finetune novel
+python3 -m tools.ckpt_surgery \
+        --src1 checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_base/model_final.pth \
+        --method remove \
+        --save-dir checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_all
+
+python3 -m tools.train_net --num-gpus 8 \
+        --config-file configs/COCO-detection/faster_rcnn_R_101_FPN_ft_novel_1shot.yaml \
+        --opts MODEL.WEIGHTS checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_all/model_reset_remove.pth
+

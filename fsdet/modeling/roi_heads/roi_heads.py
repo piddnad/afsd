@@ -768,3 +768,101 @@ class MultiFeatureAggregationROIHeads(StandardROIHeads):
             new_boxes.append(boxes)
         return new_boxes
 
+
+@ROI_HEADS_REGISTRY.register()
+class MFAROIHeads(StandardROIHeads):
+    def __init__(self, cfg, input_shape):
+        super().__init__(cfg, input_shape)
+        self._init_roi_feature_layer()
+
+    def _init_roi_feature_layer(self):
+        self.conv1x1 = nn.Conv2d(in_channels=3 * 256, out_channels=256, kernel_size=1, stride=1, padding=0)
+        # nn.init.normal_(self.conv1x1.weight, std=0.01)
+        # for l in [self.roi_discriminator]:
+        #     nn.init.constant_(conv1x1.bias, 0)
+
+    def forward(self, images, features, proposals, targets=None):
+        """
+        See :class:`ROIHeads.forward`.
+        """
+        self.image_shapes = images.image_sizes
+        del images
+        if self.training:
+            assert targets, "'targets' argument is required during training"
+            proposals = self.label_and_sample_proposals(proposals, targets)
+        del targets
+
+        features_list = [features[f] for f in self.in_features]
+
+        if self.training:
+            losses = self._forward_box(features_list, proposals)
+            return proposals, losses
+        else:
+            pred_instances = self._forward_box(features_list, proposals)
+            return pred_instances, {}
+
+    def _forward_box(self, features, proposals):
+        # 计算新的2个scale的proposal_boxes
+        proposal_boxes = [x.proposal_boxes for x in proposals]
+        part_boxes = self.modify_box_scale(proposal_boxes, 0.8, self.image_shapes)
+        context_boxes = self.modify_box_scale(proposal_boxes, 1.1, self.image_shapes)
+        # print(proposal_boxes[0], part_boxes[0], context_boxes[0], self.image_shapes[0])
+
+        # 3个scale的proposal pooling
+        # box_feature shape [n*batch_size, 256, 7, 7], a common configuration: n*batch_size = 512*16 = 8192
+        box_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
+        part_features = self.box_pooler(features, part_boxes)
+        context_features = self.box_pooler(features, context_boxes)
+        # print(box_features[0,0,0], part_features[0,0,0])  # to check if this is not equal: True
+        # print(box_features.shape)  # (1024, 256, 7, 7)
+
+        # ----- method1: concate + one 1x1 conv -----
+        box_features = torch.cat((box_features, part_features, context_features), 1)
+        # print(box_features.shape)
+        box_features = self.conv1x1(box_features)
+        pred_class_logits, pred_proposal_deltas = self.box_predictor(box_features)
+        del box_features
+
+        outputs = FastRCNNOutputs(
+            self.box2box_transform,
+            pred_class_logits,
+            pred_proposal_deltas,
+            proposals,
+            self.smooth_l1_beta,
+        )
+        if self.training:
+            return outputs.losses()
+        else:
+            pred_instances, _ = outputs.inference(
+                self.test_score_thresh,
+                self.test_nms_thresh,
+                self.test_detections_per_img,
+            )
+            return pred_instances
+
+    def modify_box_scale(self, proposal_boxes, scale_factor, image_shapes):
+        # 中心点不变，根据 scale_factor 缩放 proposal_boxes 的 scale
+        new_boxes = []
+        for i, boxes in enumerate(proposal_boxes):
+            # print(boxes.tensor.shape)  # [256,4]
+            width = boxes.tensor[:, 2] - boxes.tensor[:, 0]
+            height = boxes.tensor[:, 3] - boxes.tensor[:, 1]
+            ctr_x = boxes.tensor[:, 0] + 0.5 * width
+            ctr_y = boxes.tensor[:, 1] + 0.5 * height
+            width, height = width * scale_factor, height * scale_factor
+
+            x1 = ctr_x - 0.5 * width
+            y1 = ctr_y - 0.5 * height
+            x2 = ctr_x + 0.5 * width
+            y2 = ctr_y + 0.5 * height
+
+            h, w = image_shapes[i]
+            x1 = x1.clamp(min=0, max=w)
+            y1 = y1.clamp(min=0, max=h)
+            x2 = x2.clamp(min=0, max=w)
+            y2 = y2.clamp(min=0, max=h)
+
+            boxes = torch.stack((x1, y1, x2, y2), dim=-1)
+            boxes = Boxes(boxes)
+            new_boxes.append(boxes)
+        return new_boxes
