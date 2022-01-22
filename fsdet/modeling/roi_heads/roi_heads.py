@@ -820,6 +820,8 @@ class MFAROIHeads(StandardROIHeads):
         box_features = torch.cat((box_features, part_features, context_features), 1)
         # print(box_features.shape)
         box_features = self.conv1x1(box_features)
+
+        box_features = self.box_head(box_features)
         pred_class_logits, pred_proposal_deltas = self.box_predictor(box_features)
         del box_features
 
