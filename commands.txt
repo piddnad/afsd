@@ -10,10 +10,10 @@ python3 -m tools.train_net --num-gpus 8 \
 # 2 ckpt surgery
 # coco
 python3 -m tools.ckpt_surgery \
-        --src1 checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_base_filter_novel/model_final.pth \
+        --src1 checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_base_2x/model_final.pth \
         --method randinit \
-        --save-dir checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_all_filterN \
-        --coco
+        --save-dir checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_all \
+        --coco --no-bg
 # voc
 python3 -m tools.ckpt_surgery \
         --src1 checkpoints/voc/faster_rcnn/faster_rcnn_R_101_FPN_base1/model_final.pth \

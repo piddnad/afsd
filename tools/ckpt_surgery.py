@@ -33,6 +33,11 @@ def parse_args():
                         help='For COCO models')
     parser.add_argument('--lvis', action='store_true',
                         help='For LVIS models')
+
+    # Background class weights
+    parser.add_argument('--no-bg', action='store_true',
+                        help='Not to copy background class weights during surgery')
+
     args = parser.parse_args()
     return args
 
@@ -72,9 +77,11 @@ def ckpt_surgery(args):
         else:
             new_weight[:prev_cls] = pretrained_weight[:prev_cls]
 
-        print('No dealing with bg class weights') # not to deal with background 
-        # if 'cls_score' in param_name:
-        #     new_weight[-1] = pretrained_weight[-1]  # bg class
+        if args.no_bg:
+            print('Ignored bg class weights.')  # Not to copy background class weights during surgery
+        else:
+            if 'cls_score' in param_name:
+                new_weight[-1] = pretrained_weight[-1]  # copy bg class weight
         ckpt['model'][weight_name] = new_weight
 
     surgery_loop(args, surgery)
@@ -140,7 +147,8 @@ def surgery_loop(args, surgery):
     else:
         ckpt2 = None
         save_name = args.tar_name + '_' + \
-            ('remove' if args.method == 'remove' else 'surgery') + '.pth'
+            ('remove' if args.method == 'remove' else 'surgery') + \
+            ('_no_bg' if args.no_bg else '') + '.pth'
     if args.save_dir == '':
         # By default, save to directory of src1
         save_dir = os.path.dirname(args.src1)
