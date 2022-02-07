@@ -38,10 +38,8 @@ def load_coco_json(json_file, image_root, metadata, dataset_name):
     if is_shots:
         fileids = {}
         split_dir = os.path.join("datasets", "cocosplit")
-        if "seed0" in dataset_name:
-            shot = dataset_name.split("_")[-1].split("shot")[0]
-        elif "seed" in dataset_name:
-            shot = dataset_name.split("_")[-2].split("shot")[0]
+        shot = dataset_name.split("_")[-2].split("shot")[0]
+        if "seed0" not in dataset_name and "seed" in dataset_name:  # seed0不需要加/seedx/路径
             seed = int(dataset_name.split("_seed")[-1])
             split_dir = os.path.join(split_dir, "seed{}".format(seed))
         for idx, cls in enumerate(metadata["thing_classes"]):
