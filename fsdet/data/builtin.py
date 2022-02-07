@@ -98,8 +98,9 @@ def register_all_coco(root="datasets"):
     for prefix in ["all", "novel"]:
         for shot in [1, 2, 3, 5, 10, 30]:
             for s in range(10):
-                seed = "" if s == 0 else f"_seed{s}"
-                name = f"coco_trainval_{prefix}_{shot}shot{seed}"
+                # seed = "" if s == 0 else f"_seed{s}"
+                # name = f"coco_trainval_{prefix}_{shot}shot{seed}"
+                name = f"coco_trainval_{prefix}_{shot}shot_seed{s}"
                 METASPLITS.append((name, "coco/trainval2014", ""))
 
     for name, imgdir, annofile in METASPLITS:

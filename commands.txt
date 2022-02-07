@@ -8,6 +8,13 @@ python3 -m tools.train_net --num-gpus 8 \
 
 
 # 2 ckpt surgery
+# new format
+python3 -m tools.ckpt_surgery
+        --src checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_base_2x/model_final.pth \
+        --method randinit \
+        --save-dir checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_base_2x \
+        --dataset coco --no-bg
+
 # coco
 python3 -m tools.ckpt_surgery \
         --src1 checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_base_2x/model_final.pth \
