@@ -8,7 +8,7 @@ SAVEDIR=checkpoints/coco/${EXPNAME}
 
 
 # ----------------------------- Model Preparation --------------------------------- #
-python3 -m tools.ckpt_surgery
+python3 -m tools.ckpt_surgery \
         --src checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_base_2x/model_final.pth \
         --method randinit \
         --save-dir ${SAVEDIR}/frcn_r101_base \
