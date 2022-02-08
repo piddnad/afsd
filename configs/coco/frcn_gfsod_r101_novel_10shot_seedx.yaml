@@ -17,6 +17,7 @@ MODEL:
   ROI_HEADS:
     NAME: "MultiFeatureAggregationROIHeads"
     NUM_CLASSES: 80
+    OUTPUT_LAYER: "CosineSimOutputLayers"
     FREEZE_FEAT: False
     BATCH_SIZE_PER_IMAGE: 256  # 512
     POSITIVE_FRACTION: 0.5  # 0.25
@@ -28,14 +29,14 @@ DATASETS:
 SOLVER:
   IMS_PER_BATCH: 16
   BASE_LR: 0.001
-  STEPS: (15000,)
-  MAX_ITER: 20000
+  STEPS: (20000,)
+  MAX_ITER: 30000
   CHECKPOINT_PERIOD: 100000
   WARMUP_ITERS: 200
 
 TEST:
   AUG:
     ENABLED: True
-  EVAL_PERIOD: 5000
+  EVAL_PERIOD: 2500
 
 OUTPUT_DIR: "checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_ft_all_10shot_mfa"

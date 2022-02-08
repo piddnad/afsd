@@ -24,14 +24,26 @@ def main():
                 continue
             file_paths.append(os.path.join(_dir, 'log.txt'))
 
-        # 获得所有实验最后一次test的精度 --> results
+        # 获得所有实验的精度结果 --> results
         header, results = [], []
         for fid, fpath in enumerate(sorted(file_paths)):
             lineinfos = open(fpath).readlines()
             if fid == 0:
                 header = lineinfos[-2].strip().split(':')[-1].split(',')
-            res_info = lineinfos[-1].strip()
-            results.append([fid] + [float(x) for x in res_info.split(':')[-1].split(',')])
+
+            # -----Deprecated：取最后一次test精度------
+            # res_info = lineinfos[-1].strip()
+            # res = [float(x) for x in res_info.split(':')[-1].split(',')]
+
+            # -----New: 取该log中最高的nAP精度------
+            res_list = []
+            for idx, line in enumerate(lineinfos):
+                line = line.strip()
+                if 'copypaste:' in line and 'Task' not in line and 'AP' not in line:
+                    res_list += [float(x) for x in line.split(':')[-1].split(',')]
+                    res_list.sort(key=lambda x: x[12], reverse=True)
+
+            results.append([fid] + res_list[0])
 
         # 求出每个指标的均值和方差
         results_np = np.array(results)

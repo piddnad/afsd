@@ -20,7 +20,7 @@ BASE_WEIGHT=${SAVEDIR}/frcn_r101_base/model_reset_surgery.pth
 # --> 2. TFA-like, i.e. run seed0~9 for robust results (G-FSOD, 80 classes)
 for seed in 0 1 2 3 4 5 6 7 8 9
 do
-    for shot in 1 2 3 5 10 30
+    for shot in 10
     do
         python3 -m tools.create_config \
                 --dataset coco --config_root configs/coco \
@@ -36,4 +36,4 @@ do
 done
 python3 -m tools.extract_results \
         --res-dir ${SAVEDIR}/frcn_gfsod_r101_novel/tfa-like \
-        --shot-list 1 2 3 5 10 30
+        --shot-list 10
