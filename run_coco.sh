@@ -13,7 +13,7 @@ python3 -m tools.ckpt_surgery \
         --method randinit \
         --save-dir ${SAVEDIR}/frcn_r101_base \
         --dataset coco --no-bg
-BASE_WEIGHT=${SAVEDIR}/frcn_r101_base/model_reset_surgery.pth
+BASE_WEIGHT=${SAVEDIR}/frcn_r101_base/model_reset_surgery_no_bg.pth
 
 
 # ------------------------------ Novel Fine-tuning ------------------------------- #
