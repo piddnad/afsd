@@ -4,6 +4,15 @@ EXPNAME=$1
 SAVEDIR=checkpoints/coco/${EXPNAME}
 
 # ------------------------------- Base Pre-train ---------------------------------- #
+# Normal Pre-train (2x)
+#python3 -m tools.train_net --num-gpus 8 \
+#        --config-file configs/COCO-detection/faster_rcnn_R_101_FPN_base_2x.yaml \
+#        --opts OUTPUT_DIR ${SAVEDIR}/frcn_r101_base
+
+# for MFA Pre-train
+python3 -m tools.train_net --num-gpus 8 \
+        --config-file configs/COCO-detection/faster_rcnn_R_101_FPN_base_mfa.yaml \
+        --opts OUTPUT_DIR ${SAVEDIR}/frcn_r101_base
 
 
 

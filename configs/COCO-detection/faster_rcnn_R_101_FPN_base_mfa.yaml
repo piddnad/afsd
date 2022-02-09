@@ -5,7 +5,7 @@ MODEL:
   RESNETS:
     DEPTH: 101
   ROI_HEADS:
-    NAME: "MFAROIHeads" # "MultiFeatureAggregationROIHeads"
+    NAME: "MultiFeatureAggregationROIHeads" # "MFAROIHeads" for the simple version
     NUM_CLASSES: 60
 DATASETS:
   TRAIN: ('coco_trainval_base',)
@@ -17,5 +17,3 @@ SOLVER:
   STEPS: (75000, 100000)
   MAX_ITER: 150000
 OUTPUT_DIR: "checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_base"
-TEST:
-  EVAL_PERIOD: 5000
