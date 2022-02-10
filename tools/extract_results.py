@@ -41,7 +41,10 @@ def main():
                 line = line.strip()
                 if 'copypaste:' in line and 'Task' not in line and 'AP' not in line:
                     res_list.append([float(x) for x in line.split(':')[-1].split(',')])
-                    res_list.sort(key=lambda x: x[12], reverse=True)
+                    if 'gfsod' in args.res_dir:
+                        res_list.sort(key=lambda x: x[12], reverse=True)
+                    else:
+                        res_list.sort(key=lambda x: x[0], reverse=True)
 
             results.append([fid] + res_list[0])
 

@@ -46,8 +46,9 @@ do
         done
     done
 done
-python3 tools/extract_results.py --res-dir ${SAVEDIR}/defrcn_fsod_r101_novel/fsrw-like --shot-list 1 2 3 5 10 30  # surmarize all results
-
+python3 -m tools.extract_results \
+        --res-dir ${SAVEDIR}/frcn_fsod_r101_novel/fsrw-like \
+        --shot-list 10
 
 # -------------------------------  GFSOD (80 class) ---------------------------------- #
 # ----------------------------- Model Preparation --------------------------------- #
