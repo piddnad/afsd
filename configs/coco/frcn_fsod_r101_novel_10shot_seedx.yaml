@@ -15,7 +15,7 @@ MODEL:
     FREEZE: False
 
   ROI_HEADS:
-    NAME: "MultiFeatureAggregationROIHeads"
+    NAME: "DiscriminativeROIHeads"
     NUM_CLASSES: 20
     OUTPUT_LAYER: "CosineSimOutputLayers"
     FREEZE_FEAT: False
