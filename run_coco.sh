@@ -10,16 +10,19 @@ SAVEDIR=checkpoints/coco/${EXPNAME}
 #        --opts OUTPUT_DIR ${SAVEDIR}/frcn_r101_base
 
 # for MFA Pre-train
-#python3 -m tools.train_net --num-gpus 8 \
-#        --config-file configs/COCO-detection/faster_rcnn_R_101_FPN_base_mfa.yaml \
-#        --opts OUTPUT_DIR ${SAVEDIR}/frcn_r101_base
+python3 -m tools.train_net --num-gpus 8 \
+        --config-file configs/coco/frcn_r101_base_MFA.yaml \
+        --opts OUTPUT_DIR ${SAVEDIR}/frcn_r101_base
 
-# use this when ckpt_surgery:  --src ${SAVEDIR}/frcn_r101_base/model_final.pth \
 
+
+# ckpt_surgery
+# use this when new pretrain:  --src ${SAVEDIR}/frcn_r101_base/model_final.pth
+# use this when using base_2x: --src checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_base_2x/model_final.pth
 # -------------------------------  FSOD (only novel 20 class) ---------------------------------- #
 # ------------------------------ Model Preparation -------------------------------- #
 python3 -m tools.ckpt_surgery \
-        --src checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_base_2x/model_final.pth \
+        --src ${SAVEDIR}/frcn_r101_base/model_final.pth \
         --method remove \
         --save-dir ${SAVEDIR}/frcn_r101_base \
         --dataset coco
@@ -54,7 +57,7 @@ python3 -m tools.extract_results \
 # -------------------------------  GFSOD (80 class) ---------------------------------- #
 # ----------------------------- Model Preparation --------------------------------- #
 python3 -m tools.ckpt_surgery \
-        --src checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_base_2x/model_final.pth \
+        --src ${SAVEDIR}/frcn_r101_base/model_final.pth \
         --method randinit \
         --save-dir ${SAVEDIR}/frcn_r101_base \
         --dataset coco --no-bg
