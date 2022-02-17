@@ -671,6 +671,7 @@ class MultiFeatureAggregationROIHeads(StandardROIHeads):
 
     def _init_roi_feature_layer(self):
         self.conv1x1 = nn.Conv2d(in_channels=3 * 256, out_channels=256, kernel_size=1, stride=1, padding=0)
+        weight_init.c2_msra_fill(self.conv1x1)
         # nn.init.normal_(self.conv1x1.weight, std=0.01)
         # for l in [self.roi_discriminator]:
         #     nn.init.constant_(conv1x1.bias, 0)
@@ -770,7 +771,7 @@ class MultiFeatureAggregationROIHeads(StandardROIHeads):
 
 
 @ROI_HEADS_REGISTRY.register()
-class MFAROIHeads(StandardROIHeads):
+class MFA1ROIHeads(StandardROIHeads):
     def __init__(self, cfg, input_shape):
         super().__init__(cfg, input_shape)
         self._init_roi_feature_layer()
@@ -868,3 +869,174 @@ class MFAROIHeads(StandardROIHeads):
             boxes = Boxes(boxes)
             new_boxes.append(boxes)
         return new_boxes
+
+
+def modify_box_scale(proposal_boxes, scale_factor, image_shapes):
+    # 中心点不变，根据 scale_factor 缩放 proposal_boxes 的 scale
+    new_boxes = []
+    for i, boxes in enumerate(proposal_boxes):
+        # print(boxes.tensor.shape)  # [256,4]
+        width = boxes.tensor[:, 2] - boxes.tensor[:, 0]
+        height = boxes.tensor[:, 3] - boxes.tensor[:, 1]
+        ctr_x = boxes.tensor[:, 0] + 0.5 * width
+        ctr_y = boxes.tensor[:, 1] + 0.5 * height
+        width, height = width * scale_factor, height * scale_factor
+
+        x1 = ctr_x - 0.5 * width
+        y1 = ctr_y - 0.5 * height
+        x2 = ctr_x + 0.5 * width
+        y2 = ctr_y + 0.5 * height
+
+        h, w = image_shapes[i]
+        x1 = x1.clamp(min=0, max=w)
+        y1 = y1.clamp(min=0, max=h)
+        x2 = x2.clamp(min=0, max=w)
+        y2 = y2.clamp(min=0, max=h)
+
+        boxes = torch.stack((x1, y1, x2, y2), dim=-1)
+        boxes = Boxes(boxes)
+        new_boxes.append(boxes)
+    return new_boxes
+
+
+@ROI_HEADS_REGISTRY.register()
+class MFAwithDROIHeads(StandardROIHeads):
+    def __init__(self, cfg, input_shape):
+        super().__init__(cfg, input_shape)
+        self._init_roi_discriminator(cfg, input_shape)
+
+    def _init_roi_discriminator(self, cfg, input_shape):
+        # The RoI Discriminator is to classify an RoI feature as base/novel
+        fc_dim = cfg.MODEL.ROI_BOX_HEAD.FC_DIM
+        self.roi_discriminator = nn.Linear(fc_dim * 3, 2)
+        weight_init.c2_xavier_fill(self.roi_discriminator)
+        # nn.init.normal_(self.roi_discriminator.weight, std=0.01)
+        # for l in [self.roi_discriminator]:
+        #     nn.init.constant_(l.bias, 0)
+
+    def _init_box_head(self, cfg):
+        # fmt: off
+        pooler_resolution = cfg.MODEL.ROI_BOX_HEAD.POOLER_RESOLUTION
+        pooler_scales     = tuple(1.0 / self.feature_strides[k] for k in self.in_features)
+        sampling_ratio    = cfg.MODEL.ROI_BOX_HEAD.POOLER_SAMPLING_RATIO
+        pooler_type       = cfg.MODEL.ROI_BOX_HEAD.POOLER_TYPE
+        # fmt: on
+
+        # If StandardROIHeads is applied on multiple feature maps (as in FPN),
+        # then we share the same predictors and therefore the channel counts must be the same
+        in_channels = [self.feature_channels[f] for f in self.in_features]
+        # Check all channel counts are equal
+        assert len(set(in_channels)) == 1, in_channels
+        in_channels = in_channels[0]
+
+        self.box_pooler = ROIPooler(
+            output_size=pooler_resolution,
+            scales=pooler_scales,
+            sampling_ratio=sampling_ratio,
+            pooler_type=pooler_type,
+        )
+        # Here we split "box head" and "box predictor", which is mainly due to historical reasons.
+        # They are used together so the "box predictor" layers should be part of the "box head".
+        # New subclasses of ROIHeads do not need "box predictor"s.
+        self.box_head = build_box_head(
+            cfg,
+            ShapeSpec(
+                channels=in_channels,
+                height=pooler_resolution,
+                width=pooler_resolution,
+            ),
+        )
+        self.box_head_part = build_box_head(
+            cfg,
+            ShapeSpec(
+                channels=in_channels,
+                height=pooler_resolution,
+                width=pooler_resolution,
+            ),
+        )
+        self.box_head_context = build_box_head(
+            cfg,
+            ShapeSpec(
+                channels=in_channels,
+                height=pooler_resolution,
+                width=pooler_resolution,
+            ),
+        )
+        output_layer = cfg.MODEL.ROI_HEADS.OUTPUT_LAYER
+        self.box_predictor = ROI_HEADS_OUTPUT_REGISTRY.get(output_layer)(
+            cfg,
+            self.box_head.output_size * 3,  # for 3 level feature concate
+            self.num_classes,
+            self.cls_agnostic_bbox_reg,
+        )
+
+    def _init_roi_feature_layer(self):
+        self.conv1x1 = nn.Conv2d(in_channels=3 * 256, out_channels=256, kernel_size=1, stride=1, padding=0)
+
+        # nn.init.normal_(self.conv1x1.weight, std=0.01)
+        # for l in [self.roi_discriminator]:
+        #     nn.init.constant_(conv1x1.bias, 0)
+
+    def forward(self, images, features, proposals, targets=None):
+        """
+        See :class:`ROIHeads.forward`.
+        """
+        self.image_shapes = images.image_sizes
+        del images
+        if self.training:
+            assert targets, "'targets' argument is required during training"
+            proposals = self.label_and_sample_proposals(proposals, targets)
+        del targets
+
+        features_list = [features[f] for f in self.in_features]
+
+        if self.training:
+            losses = self._forward_box(features_list, proposals)
+            return proposals, losses
+        else:
+            pred_instances = self._forward_box(features_list, proposals)
+            return pred_instances, {}
+
+    def _forward_box(self, features, proposals):
+        # 计算新的2个scale的proposal_boxes
+        proposal_boxes = [x.proposal_boxes for x in proposals]
+        part_boxes = modify_box_scale(proposal_boxes, 0.8, self.image_shapes)
+        context_boxes = modify_box_scale(proposal_boxes, 1.1, self.image_shapes)
+        # print(proposal_boxes[0], part_boxes[0], context_boxes[0], self.image_shapes[0])
+
+        # 3个scale的proposal pooling
+        # box_feature shape [n*batch_size, 256, 7, 7], a common configuration: n*batch_size = 512*16 = 8192
+        box_features = self.box_pooler(features, [x.proposal_boxes for x in proposals])
+        part_features = self.box_pooler(features, part_boxes)
+        context_features = self.box_pooler(features, context_boxes)
+        # print(box_features[0,0,0], part_features[0,0,0])  # to check if this is not equal: True
+        # print(box_features.shape)  # (1024, 256, 7, 7)
+
+        # ----- method2: 3 separate box head + concate -----
+        box_features = self.box_head(box_features)
+        part_features = self.box_head_part(part_features)
+        context_features = self.box_head_context(context_features)
+        # print(box_features.shape)  # (1024, 1024)
+        box_features = torch.cat((box_features, part_features, context_features), 1)
+        pred_class_logits, pred_proposal_deltas = self.box_predictor(box_features)
+        pred_base_or_novel_class_logits = self.roi_discriminator(box_features)
+        del box_features
+
+        outputs = FastRCNNWithDiscriminatorOutputs(
+            self.box2box_transform,
+            pred_class_logits,
+            pred_proposal_deltas,
+            pred_base_or_novel_class_logits,
+            proposals,
+            self.smooth_l1_beta,
+        )
+        if self.training:
+            return outputs.losses()
+        else:
+            pred_instances, _ = outputs.inference(
+                self.test_score_thresh,
+                self.test_nms_thresh,
+                self.test_detections_per_img,
+            )
+            return pred_instances
+

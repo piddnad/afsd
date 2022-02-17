@@ -15,7 +15,7 @@ MODEL:
     FREEZE: False
 
   ROI_HEADS:
-    NAME: "DiscriminativeROIHeads"
+    NAME: "MFAwithDROIHeads"
     NUM_CLASSES: 80
     OUTPUT_LAYER: "CosineSimOutputLayers"
 
@@ -38,6 +38,6 @@ SOLVER:
 TEST:
   AUG:
     ENABLED: True
-  EVAL_PERIOD: 2500
+  EVAL_PERIOD: 500
 
 OUTPUT_DIR: "checkpoints/coco/faster_rcnn/faster_rcnn_R_101_FPN_ft_all_10shot_mfa"

@@ -15,7 +15,7 @@ MODEL:
     FREEZE: False
 
   ROI_HEADS:
-    NAME: "DiscriminativeROIHeads"
+    NAME: "MFAwithDROIHeads"
     NUM_CLASSES: 20
     OUTPUT_LAYER: "CosineSimOutputLayers"
     FREEZE_FEAT: False
@@ -29,8 +29,8 @@ DATASETS:
 SOLVER:
   IMS_PER_BATCH: 16
   BASE_LR: 0.001
-  STEPS: (2000,)
-  MAX_ITER: 3000
+  STEPS: (10000,)
+  MAX_ITER: 15000
   CHECKPOINT_PERIOD: 100000
   WARMUP_ITERS: 200
 

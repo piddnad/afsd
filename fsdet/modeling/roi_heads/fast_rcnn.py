@@ -429,7 +429,7 @@ class CosineSimOutputLayers(nn.Module):
         # background class
         # (hence + 1)
         self.cls_score = nn.Linear(input_size, num_classes + 1, bias=False)
-        self.scale = cfg.MODEL.ROI_HEADS.COSINE_SCALE
+        self.scale = cfg.MODEL.ROI_HEADS.COSINE_SCALE  # default: 20
         if self.scale == -1:
             # learnable global scaling factor
             self.scale = nn.Parameter(torch.ones(1) * 20.0)
