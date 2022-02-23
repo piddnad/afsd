@@ -112,76 +112,6 @@ def register_all_coco(root="datasets"):
         )
 
 
-# ==== Predefined datasets and splits for LVIS ==========
-
-_PREDEFINED_SPLITS_LVIS = {
-    "lvis_v0.5": {
-        # "lvis_v0.5_train": ("coco/train2017", "lvis/lvis_v0.5_train.json"),
-        "lvis_v0.5_train_freq": (
-            "coco/train2017",
-            "lvis/lvis_v0.5_train_freq.json",
-        ),
-        "lvis_v0.5_train_common": (
-            "coco/train2017",
-            "lvis/lvis_v0.5_train_common.json",
-        ),
-        "lvis_v0.5_train_rare": (
-            "coco/train2017",
-            "lvis/lvis_v0.5_train_rare.json",
-        ),
-        # "lvis_v0.5_val": ("coco/val2017", "lvis/lvis_v0.5_val.json"),
-        # "lvis_v0.5_val_rand_100": (
-        #     "coco/val2017",
-        #     "lvis/lvis_v0.5_val_rand_100.json",
-        # ),
-        # "lvis_v0.5_test": (
-        #     "coco/test2017",
-        #     "lvis/lvis_v0.5_image_info_test.json",
-        # ),
-    },
-}
-
-
-def register_all_lvis(root="datasets"):
-    for dataset_name, splits_per_dataset in _PREDEFINED_SPLITS_LVIS.items():
-        for key, (image_root, json_file) in splits_per_dataset.items():
-            # Assume pre-defined datasets live in `./datasets`.
-            register_lvis_instances(
-                key,
-                _get_builtin_metadata(dataset_name),
-                os.path.join(root, json_file)
-                if "://" not in json_file
-                else json_file,
-                os.path.join(root, image_root),
-            )
-
-    # register meta datasets
-    METASPLITS = [
-        (
-            "lvis_v0.5_train_shots",
-            "coco/train2017",
-            "lvissplit/lvis_shots.json",
-        ),
-        (
-            "lvis_v0.5_train_rare_novel",
-            "coco/train2017",
-            "lvis/lvis_v0.5_train_rare.json",
-        ),
-        ("lvis_v0.5_val_novel", "coco/val2017", "lvis/lvis_v0.5_val.json"),
-    ]
-
-    for name, image_root, json_file in METASPLITS:
-        dataset_name = "lvis_v0.5_fewshot" if "novel" in name else "lvis_v0.5"
-        register_meta_lvis(
-            name,
-            _get_builtin_metadata(dataset_name),
-            os.path.join(root, json_file)
-            if "://" not in json_file
-            else json_file,
-            os.path.join(root, image_root),
-        )
-
-
 # ==== Predefined splits for PASCAL VOC ===========
 def register_all_pascal_voc(root="datasets"):
     # SPLITS = [
@@ -228,11 +158,12 @@ def register_all_pascal_voc(root="datasets"):
         for sid in range(1, 4):
             for shot in [1, 2, 3, 5, 10]:
                 for year in [2007, 2012]:
-                    for seed in range(100):
-                        seed = "" if seed == 0 else "_seed{}".format(seed)
-                        name = "voc_{}_trainval_{}{}_{}shot{}".format(
-                            year, prefix, sid, shot, seed
-                        )
+                    for s in range(10):
+                        # seed = "" if seed == 0 else "_seed{}".format(seed)
+                        # name = "voc_{}_trainval_{}{}_{}shot{}".format(
+                        #     year, prefix, sid, shot, seed
+                        # )
+                        name = f"voc_{year}_trainval_{prefix}{sid}_{shot}shot_seed{s}"
                         dirname = "VOC{}".format(year)
                         img_file = "{}_{}shot_split_{}_trainval".format(
                             prefix, shot, sid

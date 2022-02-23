@@ -32,11 +32,13 @@ def main():
     suffix = 'novel' if args.setting == 'fsod' else 'all'
 
     if args.dataset in ['voc']:
+        # frcn_gfsod_r101_novelx_1shot_seedx.yaml
         name_template = 'frcn_{}_r101_novelx_{}shot_seedx.yaml'
         yaml_path = os.path.join(args.config_root, name_template.format(args.setting, args.shot))
         yaml_info = load_config_file(yaml_path)
         for i, lineinfo in enumerate(yaml_info):
             if '  TRAIN: ' in lineinfo:
+                # voc_2007_trainval_all1_1shot
                 _str_ = '  TRAIN: ("voc_2007_trainval_{}{}_{}shot_seed{}", )\n'
                 yaml_info[i] = _str_.format(suffix, args.split, args.shot, args.seed)
             if '  TEST: ' in lineinfo:
