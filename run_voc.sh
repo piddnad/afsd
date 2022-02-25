@@ -5,15 +5,11 @@ SAVEDIR=checkpoints/voc/${EXPNAME}
 SPLIT_ID=$2
 
 # ------------------------------- Base Pre-train ---------------------------------- #
-# Normal Pre-train (2x)
-#python3 -m tools.train_net --num-gpus 8 \
-#        --config-file configs/COCO-detection/faster_rcnn_R_101_FPN_base_2x.yaml \
-#        --opts OUTPUT_DIR ${SAVEDIR}/frcn_r101_base
 
 # for MFA Pre-train
-python3 -m tools.train_net --num-gpus 8 \
-        --config-file configs/voc/frcn_r101_base${SPLIT_ID}_MFA.yaml \
-        --opts OUTPUT_DIR ${SAVEDIR}/frcn_r101_base${SPLIT_ID}
+#python3 -m tools.train_net --num-gpus 8 \
+#        --config-file configs/voc/frcn_r101_base${SPLIT_ID}_MFA.yaml \
+#        --opts OUTPUT_DIR ${SAVEDIR}/frcn_r101_base${SPLIT_ID}
 
 
 # -------------------------------  GFSOD (80 class) ---------------------------------- #
@@ -35,7 +31,7 @@ do
         python3 -m tools.create_config \
                 --dataset voc --config_root configs/voc \
                 --shot ${shot} --seed ${seed} --setting 'gfsod'
-        CONFIG_PATH=configs/coco/frcn_gfsod_r101_novel${SPLIT_ID}_${shot}shot_seed${seed}.yaml
+        CONFIG_PATH=configs/voc/frcn_gfsod_r101_novel${SPLIT_ID}_${shot}shot_seed${seed}.yaml
         OUTPUT_DIR=${SAVEDIR}/frcn_gfsod_r101_novel${SPLIT_ID}/tfa-like/${shot}shot_seed${seed}
         python3 -m tools.train_net --num-gpus 8 \
                 --config-file ${CONFIG_PATH} \
