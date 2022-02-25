@@ -42,7 +42,7 @@ def main():
                 if 'copypaste:' in line and 'Task' not in line and 'AP' not in line:
                     res_list.append([float(x) for x in line.split(':')[-1].split(',')])
                     if 'gfsod' in args.res_dir:
-                        if len(res_list) > 10:  # coco
+                        if len(res_list[0]) > 10:  # coco
                             res_list.sort(key=lambda x: x[12], reverse=True)
                         else:  # voc
                             res_list.sort(key=lambda x: x[7], reverse=True)
