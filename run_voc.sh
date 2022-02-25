@@ -19,7 +19,7 @@ python3 -m tools.ckpt_surgery \
         --method randinit \
         --save-dir ${SAVEDIR}/frcn_r101_base${SPLIT_ID} \
         --dataset voc
-BASE_WEIGHT=${SAVEDIR}/frcn_r101_base/model_reset_surgery.pth
+BASE_WEIGHT=${SAVEDIR}/frcn_r101_base${SPLIT_ID}/model_reset_surgery.pth
 
 
 # ------------------------------ Novel Fine-tuning ------------------------------- #
